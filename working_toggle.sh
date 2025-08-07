@@ -7,7 +7,7 @@ LOG_FILE="/tmp/linuxst_recorder.log"
 
 # Find any running recorder
 find_recorder() {
-    pgrep -f "python3.*working_recorder.py" | head -1
+    pgrep -f "python3.*(working_recorder|fast_recorder).py" | head -1
 }
 
 # Main toggle
@@ -53,7 +53,12 @@ else
     
     # Start new recording
     cd "$SCRIPT_DIR"
-    python3 "$SCRIPT_DIR/working_recorder.py" > "$LOG_FILE" 2>&1 &
+    # Use fast_recorder if available, fall back to working_recorder
+    if [ -f "$SCRIPT_DIR/fast_recorder.py" ]; then
+        python3 "$SCRIPT_DIR/fast_recorder.py" > "$LOG_FILE" 2>&1 &
+    else
+        python3 "$SCRIPT_DIR/working_recorder.py" > "$LOG_FILE" 2>&1 &
+    fi
     NEW_PID=$!
     
     # Verify it started
