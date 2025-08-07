@@ -26,10 +26,6 @@ sudo pacman -S python python-pip portaudio xdotool
 
 ### Python Dependencies
 ```bash
-# For fast recorder only (recommended)
-pip install -r requirements-minimal.txt
-
-# For both fast and fallback recorder
 pip install -r requirements.txt
 ```
 
@@ -43,10 +39,6 @@ cd linuxst
 
 2. Install dependencies:
 ```bash
-# Recommended: Fast recorder only
-pip install -r requirements-minimal.txt
-
-# Optional: Include fallback recorder
 pip install -r requirements.txt
 ```
 

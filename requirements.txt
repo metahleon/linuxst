@@ -1,9 +1,4 @@
-# Core dependencies
 pyaudio==0.2.14
 numpy>=1.24.0
-
-# Fast transcription (primary)
 pywhispercpp>=1.3.0
-
-# Original transcription (fallback)
 openai-whisper>=20230314
