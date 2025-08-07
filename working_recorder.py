@@ -170,34 +170,21 @@ class WorkingRecorder:
         # Copy to clipboard
         clipboard_copied = False
         
-        # For Wayland - write to temp file and use wl-copy
+        # Try simple echo pipe to wl-copy first
         try:
-            # Write text to temp file to avoid shell escaping issues
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-                f.write(text)
-                temp_file = f.name
-            
-            # Use wl-copy with file input
-            with open(temp_file, 'r') as f:
-                result = subprocess.run(
-                    ["timeout", "1", "wl-copy"],
-                    stdin=f,
-                    capture_output=True,
-                    timeout=2
-                )
-            
-            # Clean up temp file
-            try:
-                os.unlink(temp_file)
-            except:
-                pass
-            
+            result = subprocess.run(
+                ["wl-copy"],
+                input=text.encode(),
+                capture_output=True,
+                timeout=1
+            )
             if result.returncode == 0:
                 clipboard_copied = True
                 print("Copied to clipboard via wl-copy", flush=True)
             else:
                 print(f"wl-copy failed with code {result.returncode}", flush=True)
+        except subprocess.TimeoutExpired:
+            print("wl-copy timeout", flush=True)
         except FileNotFoundError:
             print("wl-copy not found", flush=True)
         except Exception as e:
@@ -221,66 +208,32 @@ class WorkingRecorder:
         else:
             print("Failed to copy to clipboard", flush=True)
         
-        # Try to paste
+        # On Wayland, auto-paste triggers security warnings, so skip it
+        # The text is already saved to file and clipboard (when possible)
         paste_success = False
-        time.sleep(0.5)  # Small delay to ensure clipboard is set
         
-        # Try typing the text directly with wtype (Wayland)
-        if is_wayland:
+        if not is_wayland:
+            # Only attempt auto-paste on X11
+            time.sleep(0.5)
             try:
-                # Type the text directly instead of using Ctrl+V
-                result = subprocess.run(["wtype", text], 
-                                      capture_output=True, timeout=2)
+                result = subprocess.run(["xdotool", "key", "ctrl+v"], 
+                                      capture_output=True, timeout=1)
                 if result.returncode == 0:
                     paste_success = True
-                    print("Auto-typed with wtype", flush=True)
+                    print("Auto-pasted with xdotool", flush=True)
                 else:
-                    print(f"wtype returned: {result.returncode}, stderr: {result.stderr.decode()}", flush=True)
-            except subprocess.TimeoutExpired:
-                print("wtype timeout", flush=True)
-            except FileNotFoundError:
-                print("wtype not found", flush=True)
+                    print(f"xdotool paste failed: {result.returncode}", flush=True)
             except Exception as e:
-                print(f"wtype error: {e}", flush=True)
-        
-        # Try xdotool as fallback (works on X11 and sometimes on Wayland through XWayland)
-        if not paste_success:
-            try:
-                # Try typing the text directly with xdotool
-                result = subprocess.run(["xdotool", "type", "--delay", "10", text], 
-                                      capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    paste_success = True
-                    print("Auto-typed with xdotool", flush=True)
-                else:
-                    # Fall back to clipboard paste
-                    result = subprocess.run(["xdotool", "key", "ctrl+v"], 
-                                          capture_output=True, timeout=1)
-                    if result.returncode == 0:
-                        paste_success = True
-                        print("Auto-pasted with xdotool", flush=True)
-                    else:
-                        print(f"xdotool returned: {result.returncode}", flush=True)
-            except subprocess.TimeoutExpired:
-                print("xdotool timeout", flush=True)
-            except FileNotFoundError:
-                print("xdotool not found - install with: sudo dnf install xdotool", flush=True)
-            except Exception as e:
-                print(f"xdotool error: {e}", flush=True)
-        
-        if not paste_success:
-            print("Auto-paste failed, text is in clipboard", flush=True)
+                print(f"Auto-paste error: {e}", flush=True)
         
         # Notify user
         if paste_success:
             self.notify("Pasted")
-        elif clipboard_copied:
-            if is_wayland:
-                self.notify("Copied (Ctrl+V to paste)")
-            else:
-                self.notify("Copied to clipboard")
+        elif clipboard_copied or os.path.exists("/tmp/linuxst_last_transcription.txt"):
+            # On Wayland, always just notify about clipboard/file
+            self.notify("Ready to paste (Ctrl+V)")
         else:
-            self.notify("Failed")
+            self.notify("Saved to file")
     
     def run(self):
         """Main flow."""
